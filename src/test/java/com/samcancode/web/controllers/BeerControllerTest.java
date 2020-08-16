@@ -12,6 +12,7 @@ import static org.hamcrest.Matchers.hasSize;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -28,9 +29,15 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.samcancode.services.BeerService;
 import com.samcancode.web.model.BeerDto;
 import com.samcancode.web.model.BeerPagedList;
@@ -60,22 +67,40 @@ class BeerControllerTest {
 						.lastModifiedDate(OffsetDateTime.now())
 						.build();
 		
-		mockMvc = MockMvcBuilders.standaloneSetup(beerController).build();
+		mockMvc = MockMvcBuilders.standaloneSetup(beerController)
+//					 .setMessageConverters(jackson2HttpMessageConverter()) //set our custom converter; not needed for Springboot 2.3.3 ?
+					 .build();
 	}
 
+	//the following method configure the Jackson JSON to convert date to our format
+	public MappingJackson2HttpMessageConverter jackson2HttpMessageConverter() {
+		ObjectMapper objectMapper = new ObjectMapper();
+		//the following 3 lines is not needed for Springboot 2.3.3 ?
+//		objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+//		objectMapper.configure(SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS, true);
+//		objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+		objectMapper.registerModule(new JavaTimeModule()); //register Java Time Module for mapper usage.
+		
+		return new MappingJackson2HttpMessageConverter(objectMapper);
+	}
+	
 	@Test
 	void testGetBeerById() throws Exception {
 		//Given
 		given(beerService.findBeerById(any())).willReturn(validBeer);
+		DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssZ");
 		
 		//When-Then
-		mockMvc.perform(get("/api/v1/beer/" + validBeer.getId()))
+		MvcResult result = mockMvc.perform(get("/api/v1/beer/" + validBeer.getId()))
 			.andExpect(status().isOk())
 			.andExpect(content().contentType(MediaType.APPLICATION_JSON))
 			.andExpect(jsonPath("$.id", is(validBeer.getId().toString())))
 			.andExpect(jsonPath("$.beerName", is("Beer1")))
+			.andExpect(jsonPath("$.createdDate", is(dateTimeFormatter.format(validBeer.getCreatedDate()))))
+			.andReturn()
 			;
 		
+		System.out.println("***** testGetBeerById Result: " + result.getResponse().getContentAsString());
 	}
 	
 	@DisplayName("List Ops - ")
