@@ -1,12 +1,12 @@
 package com.samcancode.web.controllers;
 
-import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.reset;
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.Matchers.hasSize;
 
@@ -17,41 +17,33 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
-import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.samcancode.services.BeerService;
 import com.samcancode.web.model.BeerDto;
 import com.samcancode.web.model.BeerPagedList;
 import com.samcancode.web.model.BeerStyleEnum;
 
-@ExtendWith(MockitoExtension.class)
+@WebMvcTest(BeerController.class)
 class BeerControllerTest {
-	@Mock
+	@MockBean //Spring will inject via autowired
 	BeerService beerService;
 	
-	@InjectMocks
-	BeerController beerController;
+	@Autowired
+	MockMvc mockMvc; //Spring will create for us via autowiring
 	
-	MockMvc mockMvc;
 	BeerDto validBeer;
 
 	@BeforeEach
@@ -67,23 +59,13 @@ class BeerControllerTest {
 						.lastModifiedDate(OffsetDateTime.now())
 						.build();
 		
-		mockMvc = MockMvcBuilders.standaloneSetup(beerController)
-//					 .setMessageConverters(jackson2HttpMessageConverter()) //set our custom converter; not needed for Springboot 2.3.3 ?
-					 .build();
-	}
-
-	//the following method configure the Jackson JSON to convert date to our format
-	public MappingJackson2HttpMessageConverter jackson2HttpMessageConverter() {
-		ObjectMapper objectMapper = new ObjectMapper();
-		//the following 3 lines is not needed for Springboot 2.3.3 ?
-//		objectMapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
-//		objectMapper.configure(SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS, true);
-//		objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-		objectMapper.registerModule(new JavaTimeModule()); //register Java Time Module for mapper usage.
-		
-		return new MappingJackson2HttpMessageConverter(objectMapper);
 	}
 	
+	@AfterEach
+	void tearDown() {
+		reset(beerService); //this will reset all the beerService properties after each test
+	}
+
 	@Test
 	void testGetBeerById() throws Exception {
 		//Given
@@ -102,6 +84,9 @@ class BeerControllerTest {
 		
 		System.out.println("***** testGetBeerById Result: " + result.getResponse().getContentAsString());
 	}
+	
+	
+	
 	
 	@DisplayName("List Ops - ")
 	@Nested
